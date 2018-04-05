@@ -1,7 +1,8 @@
-const EventEmitter = require('events');
-const WebSocket = require('ws');
+const EventEmitter = require('events')
+const WebSocket = require('ws')
 
 const util = require('util')
+const assert = require('assert')
 
 /***********/
 /* PRIVATE */
@@ -10,7 +11,14 @@ const util = require('util')
 const MessageType = {
     ERROR: 'ERROR',
     SIGNAL: 'SIGNAL',
-    SIGN_UP: 'SIGN_UP',
+    SIGN_IN: 'SIGN_IN',
+    REGISTER_CLIENT_STATUS: 'REGISTER_CLIENT_STATUS',
+    UPDATE_CLIENT_STATUS: 'UPDATE_CLIENT_STATUS',
+}
+
+const ClientStatus = {
+    ONLINE: 'ONLINE',
+    OFFLINE: 'OFFLINE',
 }
 
 /**********/
@@ -24,23 +32,14 @@ class Server extends EventEmitter {
         let self = this
 
         // TODO : don't store this in memory...
-        self._idToClient = {};
+        self._idToClient = {}
+        self._clientsToListeners = {}
 
         // Initialize websocket server
         self._wss = new WebSocket.Server({
             clientTracking: true,
             port: 8080,
         })
-
-        // TODO : update this to broadcast to friends only
-        // TODO : make a member function of `Server` of websocket server
-        self._wss.broadcast = (data) => {
-          self._wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(data);
-            }
-          })
-        }
 
         // Triage messages to designated event handlers
         self._wss.on('connection', (ws) => {
@@ -54,11 +53,26 @@ class Server extends EventEmitter {
 
                 self.emit(data.type, ws, data.id, data.payload)
             })
+
+            ws.on('close', () => {
+                if (!ws.id) return
+
+                (self._clientsToListeners[ws.id] || new Set()).forEach((listener) => {
+                    this._idToClient[listener].send(JSON.stringify({
+                        'type': MessageType.UPDATE_CLIENT_STATUS,
+                        'payload': {
+                            'id': ws.id,
+                            'status': ClientStatus.OFFLINE,
+                        }
+                    }))
+                })
+            })
         })
 
         // Register handlers for every message type
-        self.on(MessageType.SIGNAL, self.handleSignal);
-        self.on(MessageType.SIGN_UP, self.handleSignUp);
+        self.on(MessageType.SIGNAL, self.handleSignal)
+        self.on(MessageType.SIGN_IN, self.handleSignIn)
+        self.on(MessageType.REGISTER_CLIENT_STATUS, self.handleRegisterClientStatus)
     }
 
     /***********/
@@ -79,6 +93,41 @@ class Server extends EventEmitter {
     /************/
 
     /**
+     * Sign in to the service by registering a public key
+     *
+     * @param {WebSocket} ws
+     * @param {String} clientId
+     * @param {Object} payload
+     */
+    handleSignIn(ws, clientId, payload) {
+        let self = this
+
+        if (self._idToClient[payload.id]) {
+            self._sendError(ws, util.format('A client is already registered with ID: %s', payload.id))
+            return
+        }
+
+        self._idToClient[payload.id] = ws
+        assert(!ws.id)
+        ws.id = payload.id
+
+        // TODO : register id for a websocket
+
+        // TODO : make this async
+        if (self._clientsToListeners[payload.id]) {
+            self._clientsToListeners[payload.id].forEach((listener) => {
+                self._idToClient[listener].send(JSON.stringify({
+                    'type': MessageType.UPDATE_CLIENT_STATUS,
+                    'payload': {
+                        'id': payload.id,
+                        'status': ClientStatus.ONLINE
+                    }
+                }))
+            })
+        }
+    }
+
+    /**
      * Initiate signaling with another client
      *
      * @param {WebSocket} ws
@@ -97,23 +146,11 @@ class Server extends EventEmitter {
         }))
     }
 
-    /**
-     * Sign up for the service by registering a newly generated public key
-     *
-     * @param {WebSocket} ws
-     * @param {String} clientId
-     * @param {Object} payload
-     */
-    handleSignUp(ws, _, payload) {
-        if (this._idToClient[payload.id]) {
-            this._sendError(ws, util.format('A client is already registered with ID: %s', payload.id))
-            return
-        }
+    handleRegisterClientStatus(ws, _, payload) {
+        if (!this._clientsToListeners[payload.toId]) this._clientsToListeners[payload.toId] = new Set()
 
-        this._idToClient[payload.id] = ws;
+        this._clientsToListeners[payload.toId].add(payload.fromId)
     }
-
-    // TODO : notify clients when new clients have connected
 }
 
 class Client extends EventEmitter {
@@ -127,7 +164,7 @@ class Client extends EventEmitter {
 
         self.id = id
 
-        self._ws = new WebSocket('ws://localhost::8080');
+        self._ws = new WebSocket('ws://localhost::8080')
 
         // Triage messages to designated event handlers
         self._ws.on('message', (data) => {
@@ -143,6 +180,10 @@ class Client extends EventEmitter {
 
         self.on(MessageType.ERROR, (payload) => { console.log(util.format('SERVER ERROR: %s', payload.message)) })
         self.on(MessageType.SIGNAL, (payload) => { console.log(util.format('Received signal from `%s`', payload.fromId)) })
+        self.on(
+            MessageType.UPDATE_CLIENT_STATUS,
+            (payload) => { console.log(util.format('UPDATE_CLIENT_STATUS -> %d, %s', payload.id, payload.status)) }
+        )
     }
 
     _queueSend(type, payload, cb) {
@@ -166,6 +207,10 @@ class Client extends EventEmitter {
         }
     }
 
+    close() {
+        this._ws.close()
+    }
+
     signal(toId, cb) {
         this._queueSend(
             MessageType.SIGNAL,
@@ -177,10 +222,21 @@ class Client extends EventEmitter {
         )
     }
 
-    signUp(cb) {
+    signIn(cb) {
         this._queueSend(
-            MessageType.SIGN_UP,
+            MessageType.SIGN_IN,
             { 'id': this.id },
+            cb
+        )
+    }
+
+    registerForClientStatusUpdates(toId, cb) {
+        this._queueSend(
+            MessageType.REGISTER_CLIENT_STATUS,
+            { 
+                'fromId': this.id,
+                'toId': toId,
+            },
             cb
         )
     }
@@ -192,3 +248,4 @@ class Client extends EventEmitter {
 
 module.exports.Server = Server
 module.exports.Client = Client
+module.exports.ClientStatus = ClientStatus
