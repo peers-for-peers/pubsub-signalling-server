@@ -31,34 +31,49 @@ class Server extends EventEmitter {
 
         let self = this
 
-        // TODO : don't store this in memory...
-        self._idToClient = {}
-        self._clientsToListeners = {}
+        // TODO : don't store these in memory...
+        this._idToClient = {}
+        this._clientToListenerIDs = {}
 
         // Initialize websocket server
-        self._wss = new WebSocket.Server({
+        this._wss = new WebSocket.Server({
             clientTracking: true,
             port: 8080,
         })
 
-        // Triage messages to designated event handlers
+        const MESSAGE_HANDLER_PREFIX = 'MESSAGE_HANDLER_'
+
+        this._supportedMessageTypes = new Set()
+        this._registerHandler = (type, handler) => { 
+            self._supportedMessageTypes.add(type)
+            self.on(MESSAGE_HANDLER_PREFIX + type, handler) 
+        }
+
+        // Register handlers for every message type
+        this._registerHandler(MessageType.SIGNAL, this.handleSignal)
+        this._registerHandler(MessageType.SIGN_IN, this.handleSignIn)
+        this._registerHandler(MessageType.REGISTER_CLIENT_STATUS, this.handleRegisterClientStatus)
+
         self._wss.on('connection', (ws) => {
+            // Triage messages to designated event handlers
             ws.on('message', (data) => {
                 data = JSON.parse(data)
 
-                if (!Object.keys(MessageType).map((k) => MessageType[k]).includes(data.type)) {
+                if (!self._supportedMessageTypes.has(data.type)) {
                     self._sendError(ws, util.format("The message type `%s` is not supported", data.type))
                     return
                 }
 
-                self.emit(data.type, ws, data.id, data.payload)
+                self.emit(MESSAGE_HANDLER_PREFIX + data.type, ws, data.id, data.payload)
             })
 
+            // Notify listeners when a client connection is closed
             ws.on('close', () => {
+                // The client never logged in
                 if (!ws.id) return
 
-                (self._clientsToListeners[ws.id] || new Set()).forEach((listener) => {
-                    this._idToClient[listener].send(JSON.stringify({
+                (self._clientToListenerIDs[ws.id] || new Set()).forEach((l) => {
+                    this._idToClient[l].send(JSON.stringify({
                         'type': MessageType.UPDATE_CLIENT_STATUS,
                         'payload': {
                             'id': ws.id,
@@ -68,11 +83,6 @@ class Server extends EventEmitter {
                 })
             })
         })
-
-        // Register handlers for every message type
-        self.on(MessageType.SIGNAL, self.handleSignal)
-        self.on(MessageType.SIGN_IN, self.handleSignIn)
-        self.on(MessageType.REGISTER_CLIENT_STATUS, self.handleRegisterClientStatus)
     }
 
     /***********/
@@ -111,20 +121,16 @@ class Server extends EventEmitter {
         assert(!ws.id)
         ws.id = payload.id
 
-        // TODO : register id for a websocket
-
-        // TODO : make this async
-        if (self._clientsToListeners[payload.id]) {
-            self._clientsToListeners[payload.id].forEach((listener) => {
-                self._idToClient[listener].send(JSON.stringify({
-                    'type': MessageType.UPDATE_CLIENT_STATUS,
-                    'payload': {
-                        'id': payload.id,
-                        'status': ClientStatus.ONLINE
-                    }
-                }))
-            })
-        }
+        let listeners = self._clientToListenerIDs[payload.id] || new Set()
+        listeners.forEach((l) => {
+            self._idToClient[l].send(JSON.stringify({
+                'type': MessageType.UPDATE_CLIENT_STATUS,
+                'payload': {
+                    'id': payload.id,
+                    'status': ClientStatus.ONLINE
+                }
+            }))
+        })
     }
 
     /**
@@ -147,9 +153,11 @@ class Server extends EventEmitter {
     }
 
     handleRegisterClientStatus(ws, _, payload) {
-        if (!this._clientsToListeners[payload.toId]) this._clientsToListeners[payload.toId] = new Set()
+        if (!this._clientToListenerIDs[payload.toId]) this._clientToListenerIDs[payload.toId] = new Set()
 
-        this._clientsToListeners[payload.toId].add(payload.fromId)
+        // TODO : send the clients status if they are online
+
+        this._clientToListenerIDs[payload.toId].add(payload.fromId)
     }
 }
 
