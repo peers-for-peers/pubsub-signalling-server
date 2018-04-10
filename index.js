@@ -211,7 +211,10 @@ class Server extends MessageHandler {
     handleRegisterClientStatus(ws, payload) {
         if (!this._clientToListenerIDs[payload.toId]) this._clientToListenerIDs[payload.toId] = new Set()
 
-        // TODO : send the clients status if they are online
+        // Send the clients status if they are online
+        if (this._idToClient[payload.id]) {
+            sendMessage(ws.id, MessageType.UPDATE_CLIENT_STATUS, null, payload.id, ClientStatus.ONLINE)
+        }
 
         this._clientToListenerIDs[payload.toId].add(payload.fromId)
     }
