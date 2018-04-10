@@ -141,15 +141,27 @@ class Server extends MessageHandler {
                 // The client never logged in
                 if (!ws.id) return
 
-                let listeners = self._clientToListenerIDs[ws.id] || new Set()
-                listeners.forEach((l) => sendMessage(
-                    self._idToClient[l],
-                    MessageType.UPDATE_CLIENT_STATUS,
-                    null,
-                    ws.id,
-                    ClientStatus.OFFLINE
-                ))
+                self._notifyListeners(ws.id, ClientStatus.OFFLINE)
+
+                // Clean up client state
+                delete self._idToClient[ws.id]
             })
+        })
+    }
+
+    /***********/
+    /* PRIVATE */
+    /***********/
+
+    _notifyListeners(id, clientStatus) {
+        let self = this
+
+        let listeners = this._clientToListenerIDs[id] || new Set()
+        listeners.forEach((l) => {
+            // Lazily clean up the id to client mapping
+            if (!self._idToClient[l]) listeners.delete(l)
+
+            sendMessage(self._idToClient[l], MessageType.UPDATE_CLIENT_STATUS, null, id, clientStatus)
         })
     }
 
@@ -172,14 +184,12 @@ class Server extends MessageHandler {
             return
         }
 
+        // Update data structures
         self._idToClient[payload.id] = ws
         assert(!ws.id)
         ws.id = payload.id
 
-        let listeners = self._clientToListenerIDs[payload.id] || new Set()
-        listeners.forEach((l) => {
-            sendMessage(self._idToClient[l], MessageType.UPDATE_CLIENT_STATUS, null, payload.id, ClientStatus.ONLINE)
-        })
+        self._notifyListeners(ws.id, ClientStatus.ONLINE)
     }
 
     /**
