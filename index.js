@@ -207,6 +207,12 @@ class Server extends MessageHandler {
     }
 }
 
+const ClientEvents = {
+    ONLINE: 'ONLINE',
+    OFFLINE: 'OFFLINE',
+    SIGNAL: 'SIGNAL',
+}
+
 class Client extends MessageHandler {
     /**
      * @param {String} id - The public key of the client being created
@@ -226,11 +232,14 @@ class Client extends MessageHandler {
         )
         this._registerHandler(
             MessageType.SIGNAL,
-            (payload) => console.log(util.format('Received signal from `%s`', payload.fromId))
+            (payload) => self.emit(ClientEvents.SIGNAL, payload.fromId)
         )
         this._registerHandler(
             MessageType.UPDATE_CLIENT_STATUS,
-            (payload) => console.log(util.format('UPDATE_CLIENT_STATUS -> %d, %s', payload.id, payload.status))
+            (payload) => self.emit(
+                (payload.status === ClientStatus.ONLINE) ? ClientEvents.ONLINE : ClientEvents.OFFLINE,
+                payload.id
+            )
         )
 
         // Triage messages to designated event handlers
@@ -269,4 +278,4 @@ class Client extends MessageHandler {
 
 module.exports.Server = Server
 module.exports.Client = Client
-module.exports.ClientStatus = ClientStatus
+module.exports.ClientEvents = ClientEvents
