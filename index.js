@@ -25,9 +25,10 @@ const messageTypeToFormatter = {
     [MessageType.ERROR]: (message) => ({
         'message': message,
     }),
-    [MessageType.SIGNAL]: (fromId, toId) => ({
+    [MessageType.SIGNAL]: (fromId, toId, signal) => ({
         'fromId': fromId,
         'toId': toId,
+        'signal': signal,
     }),
     [MessageType.SIGN_IN]: (id) => ({ 'id': id }),
     [MessageType.REGISTER_CLIENT_STATUS]: (fromId, toId) => ({
@@ -205,7 +206,7 @@ class Server extends MessageHandler {
             return
         }
 
-        sendMessage(self._idToClient[payload.toId], MessageType.SIGNAL, null, payload.fromId, payload.toId)
+        sendMessage(this._idToClient[payload.toId], MessageType.SIGNAL, null, payload.fromId, payload.toId, payload.signal)
     }
 
     handleRegisterClientStatus(ws, payload) {
@@ -245,7 +246,7 @@ class Client extends MessageHandler {
         )
         this._registerHandler(
             MessageType.SIGNAL,
-            (payload) => self.emit(ClientEvents.SIGNAL, payload.fromId)
+            (payload) => self.emit(ClientEvents.SIGNAL, payload.fromId, payload.signal)
         )
         this._registerHandler(
             MessageType.UPDATE_CLIENT_STATUS,
@@ -272,8 +273,8 @@ class Client extends MessageHandler {
         this._ws.close()
     }
 
-    signal(toId, cb) {
-        sendMessage(this._ws, MessageType.SIGNAL, cb, this.id, toId)
+    signal(toId, signal, cb) {
+        sendMessage(this._ws, MessageType.SIGNAL, cb, this.id, toId, signal)
     }
 
     signIn(cb) {
