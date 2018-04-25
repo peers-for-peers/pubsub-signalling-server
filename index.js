@@ -25,19 +25,17 @@ const messageTypeToFormatter = {
     [MessageType.ERROR]: (message) => ({
         'message': message,
     }),
-    [MessageType.SIGNAL]: (fromId, toId, signal) => ({
-        'fromId': fromId,
-        'toId': toId,
-        'signal': signal,
+    [MessageType.RELAY]: (from, to, payload) => ({
+        'from': from,
+        'to': to,
+        'payload': payload,
     }),
     [MessageType.SIGN_IN]: (id) => ({ 'id': id }),
-    [MessageType.REGISTER_CLIENT_STATUS]: (fromId, toId) => ({
-        'fromId': fromId,
-        'toId': toId,
+    [MessageType.GET_TOPIC_INFO_REQ]: (id) => ({
+        'id': id
     }),
-    [MessageType.UPDATE_CLIENT_STATUS]: (id, newStatus) => ({
-        'id': id,
-        'status': newStatus,
+    [MessageType.GET_TOPIC_INFO_RSP]: (peers) => ({
+        'peers': peers
     }),
 }
 
