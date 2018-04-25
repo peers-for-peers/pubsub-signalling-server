@@ -12,32 +12,32 @@ const MessageType = {
   ERROR: 'ERROR',
   GET_TOPIC_INFO_REQ: 'GET_TOPIC_INFO_REQ',
   GET_TOPIC_INFO_RSP: 'GET_TOPIC_INFO_REQ',
-  RELAY: 'SIGNAL',
+  RELAY: 'RELAY',
   SIGN_IN: 'SIGN_IN',
-  SUBSCRIBE: 'SIGN_IN',
+  SUBSCRIBE: 'SIGN_IN'
 }
 
 const messageTypeToFormatter = {
   [MessageType.ERROR]: (message) => ({
-    'message': message,
+    'message': message
   }),
   [MessageType.GET_TOPIC_INFO_REQ]: (topic) => ({
-    'topic': topic,
+    'topic': topic
   }),
   [MessageType.GET_TOPIC_INFO_RSP]: (topic, peers) => ({
     'topic': topic,
-    'peers': peers,
+    'peers': peers
   }),
   [MessageType.RELAY]: (from, to, relay) => ({
     'from': from,
     'to': to,
-    'relay': relay,
+    'relay': relay
   }),
   [MessageType.SIGN_IN]: (id) => ({ 'id': id }),
   [MessageType.SUBSCRIBE]: (id, topic) => ({
     'id': id,
-    'topic': topic,
-  }),
+    'topic': topic
+  })
 }
 
 const formatPayload = (type, args) => messageTypeToFormatter[type](...args)
@@ -52,14 +52,14 @@ const formatPayload = (type, args) => messageTypeToFormatter[type](...args)
  * @param {Object} payload
  * @param {Function} cb
  */
-function sendMessage(ws, type, cb, ...args) {
+function sendMessage (ws, type, cb, ...args) {
   const data = JSON.stringify({
     'type': type,
-    'payload': formatPayload(type, args),
+    'payload': formatPayload(type, args)
   })
 
   // If the websocket is not open, queue the message
-  if (ws.readyState != WebSocket.OPEN) {
+  if (ws.readyState !== WebSocket.OPEN) {
     ws.once('open', () => {
       ws.send(data)
       if (cb) cb(null)
@@ -75,27 +75,26 @@ function sendMessage(ws, type, cb, ...args) {
 /********/
 
 class MessageHandler extends EventEmitter {
-  constructor() {
+  constructor () {
     super()
 
     this.MESSAGE_HANDLER_PREFIX = '_MESSAGE_HANDLER_'
     this._supportedMessageTypes = new Set()
   }
 
-  _registerHandler(type, handler) {
+  _registerHandler (type, handler) {
     this._supportedMessageTypes.add(type)
     this.on(this.MESSAGE_HANDLER_PREFIX + type, handler)
   }
 
-  _handleMessage(type, cb, ...context) {
+  _handleMessage (type, cb, ...context) {
     if (!this._supportedMessageTypes.has(type)) {
-      cb(util.format('The message type `%s` is not supported', data.type))
+      cb(util.format('The message type `%s` is not supported', type))
       return
     }
 
     this.emit(this.MESSAGE_HANDLER_PREFIX + type, ...context)
   }
-
 }
 
 /**********/
@@ -103,7 +102,7 @@ class MessageHandler extends EventEmitter {
 /**********/
 
 class Server extends MessageHandler {
-  constructor() {
+  constructor () {
     super()
 
     let self = this
@@ -117,7 +116,7 @@ class Server extends MessageHandler {
     // Initialize websocket server
     this._wss = new WebSocket.Server({
       clientTracking: true,
-      port: 8080,
+      port: 8080
     })
 
     // Register handlers for every message type
@@ -157,7 +156,7 @@ class Server extends MessageHandler {
   /* HANDLERS */
   /************/
 
-  _handleGetTopicInfoReq(ws, payload) {
+  _handleGetTopicInfoReq (ws, payload) {
     const ids = this._topicsToIds[payload.topic]
 
     if (!ids) {
@@ -165,10 +164,10 @@ class Server extends MessageHandler {
       return
     }
 
-    sendMessage(ws, MessageType.GET_TOPIC_INFO_RSP, null, paylaod.topic, ids)
+    sendMessage(ws, MessageType.GET_TOPIC_INFO_RSP, null, payload.topic, ids)
   }
 
-  _handleRelay(ws, payload) {
+  _handleRelay (ws, payload) {
     if (!this._idToClient[payload.toId]) {
       sendMessage(ws, MessageType.ERROR, null, util.format('Client `%s` is not online', payload.toId))
       return
@@ -177,7 +176,7 @@ class Server extends MessageHandler {
     sendMessage(this._idToClient[payload.toId], MessageType.RELAY, null, payload.fromId, payload.toId, payload.relay)
   }
 
-  _handleSignIn(ws, payload) {
+  _handleSignIn (ws, payload) {
     if (this._idToClient[payload.id]) {
       sendMessage(ws, MessageType.ERROR, null, util.format('A client is already registered with ID: %s', payload.id))
       return
@@ -189,7 +188,7 @@ class Server extends MessageHandler {
     ws.id = payload.id
   }
 
-  _handleSubscribe(ws, payload) {
+  _handleSubscribe (ws, payload) {
     let ids = this._topicsToIds[payload.topic]
 
     if (!ids) {
@@ -204,14 +203,14 @@ class Server extends MessageHandler {
 const ClientEvents = {
   ERROR: 'ERROR',
   RELAY: 'RELAY',
-  TOPIC_INFO: 'TOPIC_INFO',
+  TOPIC_INFO: 'TOPIC_INFO'
 }
 
 class Client extends MessageHandler {
   /**
    * @param {String} id - The public key of the client being created
    */
-  constructor(id) {
+  constructor (id) {
     super()
 
     let self = this
@@ -219,21 +218,21 @@ class Client extends MessageHandler {
     self.id = id
     self._ws = new WebSocket('ws://localhost::8080')
 
-    // Register handlers for every message type
+    // Register handlers
     this._registerHandler(
       MessageType.ERROR,
-      (payload) => console.log(util.format('SERVER ERROR: %s', payload.message))
+      (payload) => {
+        console.log(util.format('SERVER ERROR: %s', payload.message))
+        self.emit(ClientEvents.ERROR, payload.message)
+      }
     )
     this._registerHandler(
-      MessageType.SIGNAL,
-      (payload) => self.emit(ClientEvents.SIGNAL, payload.fromId, payload.signal)
+      MessageType.GET_TOPIC_INFO_RSP,
+      (payload) => self.emit(ClientEvents.TOPIC_INFO, payload.topic, payload.peers)
     )
     this._registerHandler(
-      MessageType.UPDATE_CLIENT_STATUS,
-      (payload) => self.emit(
-        (payload.status === ClientStatus.ONLINE) ? ClientEvents.ONLINE : ClientEvents.OFFLINE,
-        payload.id
-      )
+      MessageType.RELAY,
+      (payload) => self.emit(ClientEvents.RELAY, payload.fromId, payload.relay)
     )
 
     // Triage messages to designated event handlers
@@ -242,27 +241,34 @@ class Client extends MessageHandler {
 
       self._handleMessage(
         data.type,
-        (err) => { if (err) self.emit('error', err) },
+        (err) => { if (err) self.emit(ClientEvents.ERROR, err) },
         data.payload
       )
     })
-
   }
 
-  close() {
+  close () {
     this._ws.close()
   }
 
-  signal(toId, signal, cb) {
-    sendMessage(this._ws, MessageType.SIGNAL, cb, this.id, toId, signal)
+  /**********************/
+  /* CORE FUNCTIONALITY */
+  /**********************/
+
+  getTopicInfo (topic, cb) {
+    sendMessage(this._ws, MessageType.GET_TOPIC_INFO_REQ, cb, topic)
   }
 
-  signIn(cb) {
+  relay (toId, relay, cb) {
+    sendMessage(this._ws, MessageType.RELAY, cb, this.id, toId, relay)
+  }
+
+  signIn (cb) {
     sendMessage(this._ws, MessageType.SIGN_IN, cb, this.id)
   }
 
-  registerForUpdates(toId, cb) {
-    sendMessage(this._ws, MessageType.REGISTER_CLIENT_STATUS, cb, this.id, toId)
+  subscribe (topic, cb) {
+    sendMessage(this._ws, MessageType.SUBSCRIBE, cb, topic)
   }
 }
 
