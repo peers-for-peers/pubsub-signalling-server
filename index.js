@@ -10,32 +10,33 @@ const assert = require('assert')
 
 const MessageType = {
   ERROR: 'ERROR',
-  SIGNAL: 'SIGNAL',
+  GET_TOPIC_INFO_REQ: 'GET_TOPIC_INFO_REQ',
+  GET_TOPIC_INFO_RSP: 'GET_TOPIC_INFO_REQ',
+  RELAY: 'SIGNAL',
   SIGN_IN: 'SIGN_IN',
-  REGISTER_CLIENT_STATUS: 'REGISTER_CLIENT_STATUS',
-  UPDATE_CLIENT_STATUS: 'UPDATE_CLIENT_STATUS',
-}
-
-const ClientStatus = {
-  ONLINE: 'ONLINE',
-  OFFLINE: 'OFFLINE',
+  SUBSCRIBE: 'SIGN_IN',
 }
 
 const messageTypeToFormatter = {
   [MessageType.ERROR]: (message) => ({
     'message': message,
   }),
-  [MessageType.RELAY]: (from, to, payload) => ({
+  [MessageType.GET_TOPIC_INFO_REQ]: (topic) => ({
+    'topic': topic,
+  }),
+  [MessageType.GET_TOPIC_INFO_RSP]: (topic, peers) => ({
+    'topic': topic,
+    'peers': peers,
+  }),
+  [MessageType.RELAY]: (from, to, relay) => ({
     'from': from,
     'to': to,
-    'payload': payload,
+    'relay': relay,
   }),
   [MessageType.SIGN_IN]: (id) => ({ 'id': id }),
-  [MessageType.GET_TOPIC_INFO_REQ]: (id) => ({
-    'id': id
-  }),
-  [MessageType.GET_TOPIC_INFO_RSP]: (peers) => ({
-    'peers': peers
+  [MessageType.SUBSCRIBE]: (id, topic) => ({
+    'id': id,
+    'topic': topic,
   }),
 }
 
@@ -88,7 +89,7 @@ class MessageHandler extends EventEmitter {
 
   _handleMessage(type, cb, ...context) {
     if (!this._supportedMessageTypes.has(type)) {
-      cb(util.format("The message type `%s` is not supported", data.type))
+      cb(util.format('The message type `%s` is not supported', data.type))
       return
     }
 
@@ -109,7 +110,9 @@ class Server extends MessageHandler {
 
     // TODO : don't store these in memory...
     this._idToClient = {}
-    this._clientToListenerIDs = {}
+    this._topicsToIds = {}
+    // Stores the reverse mapping for garbage collection
+    this._idToTopics = {}
 
     // Initialize websocket server
     this._wss = new WebSocket.Server({
@@ -118,9 +121,10 @@ class Server extends MessageHandler {
     })
 
     // Register handlers for every message type
-    this._registerHandler(MessageType.SIGNAL, this.handleSignal)
-    this._registerHandler(MessageType.SIGN_IN, this.handleSignIn)
-    this._registerHandler(MessageType.REGISTER_CLIENT_STATUS, this.handleRegisterClientStatus)
+    this._registerHandler(MessageType.GET_TOPIC_INFO_REQ, this._handleGetTopicInfoReq)
+    this._registerHandler(MessageType.RELAY, this._handleSignal)
+    this._registerHandler(MessageType.SIGN_IN, this._handleSignIn)
+    this._registerHandler(MessageType.SUBSCRIBE, this._handleSubscribe)
 
     self._wss.on('connection', (ws) => {
       // Triage messages to designated event handlers
@@ -135,32 +139,17 @@ class Server extends MessageHandler {
         )
       })
 
-      // Notify listeners when a client connection is closed
       ws.on('close', () => {
         // The client never logged in
         if (!ws.id) return
 
-        self._notifyListeners(ws.id, ClientStatus.OFFLINE)
-
         // Clean up client state
         delete self._idToClient[ws.id]
+
+        // Clean up the client from subscribed topics
+        self._idToTopics.forEach((topic) => self._topicsToIds[topic].remove(ws.id))
+        delete self._idToTopics[ws.id]
       })
-    })
-  }
-
-  /***********/
-  /* PRIVATE */
-  /***********/
-
-  _notifyListeners(id, clientStatus) {
-    let self = this
-
-    let listeners = this._clientToListenerIDs[id] || new Set()
-    listeners.forEach((l) => {
-      // Lazily clean up the id to client mapping
-      if (!self._idToClient[l]) listeners.delete(l)
-
-      sendMessage(self._idToClient[l], MessageType.UPDATE_CLIENT_STATUS, null, id, clientStatus)
     })
   }
 
@@ -168,126 +157,119 @@ class Server extends MessageHandler {
   /* HANDLERS */
   /************/
 
-  /**
-   * Sign in to the service by registering a public key
-   *
-   * @param {WebSocket} ws
-   * @param {String} clientId
-   * @param {Object} payload
-   */
-    handleSignIn(ws, payload) {
-        let self = this
+  _handleGetTopicInfoReq(ws, payload) {
+    const ids = this._topicsToIds[payload.topic]
 
-        if (self._idToClient[payload.id]) {
-            sendMessage(ws, MessageType.ERROR, null, util.format('A client is already registered with ID: %s', payload.id))
-            return
-        }
-
-  // Update data structures
-        self._idToClient[payload.id] = ws
-        assert(!ws.id)
-        ws.id = payload.id
-
-        self._notifyListeners(ws.id, ClientStatus.ONLINE)
+    if (!ids) {
+      sendMessage(ws, MessageType.ERROR, null, util.format('Topic `%s` does not exist', payload.topic))
+      return
     }
 
-  /**
-   * Initiate signaling with another client
-   *
-   * @param {WebSocket} ws
-   * @param {String} clientId
-   * @param {Object} payload
-   */
-    handleSignal(ws, payload) {
-        if (!this._idToClient[payload.toId]) {
-            this.emit(ws, util.format('Client `%s` is not online', payload.toId))
-            return
-        }
+    sendMessage(ws, MessageType.GET_TOPIC_INFO_RSP, null, paylaod.topic, ids)
+  }
 
-        sendMessage(this._idToClient[payload.toId], MessageType.SIGNAL, null, payload.fromId, payload.toId, payload.signal)
+  _handleRelay(ws, payload) {
+    if (!this._idToClient[payload.toId]) {
+      sendMessage(ws, MessageType.ERROR, null, util.format('Client `%s` is not online', payload.toId))
+      return
     }
 
-    handleRegisterClientStatus(ws, payload) {
-        if (!this._clientToListenerIDs[payload.toId]) this._clientToListenerIDs[payload.toId] = new Set()
+    sendMessage(this._idToClient[payload.toId], MessageType.RELAY, null, payload.fromId, payload.toId, payload.relay)
+  }
 
-  // Send the clients status if they are online
-        if (this._idToClient[payload.id]) {
-            sendMessage(ws.id, MessageType.UPDATE_CLIENT_STATUS, null, payload.id, ClientStatus.ONLINE)
-        }
-
-        this._clientToListenerIDs[payload.toId].add(payload.fromId)
+  _handleSignIn(ws, payload) {
+    if (this._idToClient[payload.id]) {
+      sendMessage(ws, MessageType.ERROR, null, util.format('A client is already registered with ID: %s', payload.id))
+      return
     }
+
+    // Update data structures
+    this._idToClient[payload.id] = ws
+    assert(!ws.id)
+    ws.id = payload.id
+  }
+
+  _handleSubscribe(ws, payload) {
+    let ids = this._topicsToIds[payload.topic]
+
+    if (!ids) {
+      sendMessage(ws, MessageType.ERROR, null, util.format('Topic `%s` does not exist', payload.topic))
+      return
+    }
+
+    ids.push(payload.id)
+  }
 }
 
 const ClientEvents = {
-    ONLINE: 'ONLINE',
-    OFFLINE: 'OFFLINE',
-    SIGNAL: 'SIGNAL',
+  ERROR: 'ERROR',
+  RELAY: 'RELAY',
+  TOPIC_INFO: 'TOPIC_INFO',
 }
 
 class Client extends MessageHandler {
   /**
    * @param {String} id - The public key of the client being created
    */
-    constructor(id) {
-        super()
+  constructor(id) {
+    super()
 
-        let self = this
+    let self = this
 
-        self.id = id
-        self._ws = new WebSocket('ws://localhost::8080')
+    self.id = id
+    self._ws = new WebSocket('ws://localhost::8080')
 
-  // Register handlers for every message type
-        this._registerHandler(
-            MessageType.ERROR,
-            (payload) => console.log(util.format('SERVER ERROR: %s', payload.message))
-        )
-        this._registerHandler(
-            MessageType.SIGNAL,
-            (payload) => self.emit(ClientEvents.SIGNAL, payload.fromId, payload.signal)
-        )
-        this._registerHandler(
-            MessageType.UPDATE_CLIENT_STATUS,
-            (payload) => self.emit(
-                (payload.status === ClientStatus.ONLINE) ? ClientEvents.ONLINE : ClientEvents.OFFLINE,
-                payload.id
-            )
-        )
+    // Register handlers for every message type
+    this._registerHandler(
+      MessageType.ERROR,
+      (payload) => console.log(util.format('SERVER ERROR: %s', payload.message))
+    )
+    this._registerHandler(
+      MessageType.SIGNAL,
+      (payload) => self.emit(ClientEvents.SIGNAL, payload.fromId, payload.signal)
+    )
+    this._registerHandler(
+      MessageType.UPDATE_CLIENT_STATUS,
+      (payload) => self.emit(
+        (payload.status === ClientStatus.ONLINE) ? ClientEvents.ONLINE : ClientEvents.OFFLINE,
+        payload.id
+      )
+    )
 
-  // Triage messages to designated event handlers
-        self._ws.on('message', (data) => {
-            data = JSON.parse(data)
+    // Triage messages to designated event handlers
+    self._ws.on('message', (data) => {
+      data = JSON.parse(data)
 
-            self._handleMessage(
-                data.type,
-                (err) => { if (err) self.emit('error', err) },
-                data.payload
-            )
-        })
+      self._handleMessage(
+        data.type,
+        (err) => { if (err) self.emit('error', err) },
+        data.payload
+      )
+    })
 
-    }
+  }
 
-    close() {
-        this._ws.close()
-    }
+  close() {
+    this._ws.close()
+  }
 
-    signal(toId, signal, cb) {
-        sendMessage(this._ws, MessageType.SIGNAL, cb, this.id, toId, signal)
-    }
+  signal(toId, signal, cb) {
+    sendMessage(this._ws, MessageType.SIGNAL, cb, this.id, toId, signal)
+  }
 
-    signIn(cb) {
-        sendMessage(this._ws, MessageType.SIGN_IN, cb, this.id)
-    }
+  signIn(cb) {
+    sendMessage(this._ws, MessageType.SIGN_IN, cb, this.id)
+  }
 
-    registerForUpdates(toId, cb) {
-        sendMessage(this._ws, MessageType.REGISTER_CLIENT_STATUS, cb, this.id, toId)
-    }
+  registerForUpdates(toId, cb) {
+    sendMessage(this._ws, MessageType.REGISTER_CLIENT_STATUS, cb, this.id, toId)
+  }
 }
 
-  /***********/
-  /* EXPORTS */
-  /***********/
+/***********/
+/* EXPORTS */
+/***********/
 
-  module.exports.Server = Server
-  module.exports.Client = Client
-  module.exports.ClientEvents = ClientEvents
+module.exports.Server = Server
+module.exports.Client = Client
+module.exports.ClientEvents = ClientEvents
