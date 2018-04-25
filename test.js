@@ -8,50 +8,50 @@ const Server = require('./index').Server
 const assert = require('assert')
 
 class Peer {
-    constructor(id) {
-        let self = this
+  constructor(id) {
+    let self = this
 
-        this.client = new Client(id)
-        this.idToPeers = {}
+    this.client = new Client(id)
+    this.idToPeers = {}
 
-        this.client.on(ClientEvents.SIGNAL, (id, signal) => {
-            if (!(id in self.idToPeers)) self.connect(id, false)
-            
-            self.idToPeers[id].signal(signal)
-        })
+    this.client.on(ClientEvents.SIGNAL, (id, signal) => {
+      if (!(id in self.idToPeers)) self.connect(id, false)
 
-        this.client.on(ClientEvents.ONLINE, (id) => {
-            self.connect(id, true)
-        })
+      self.idToPeers[id].signal(signal)
+    })
 
-        this.client.signIn((err) => { assert.ok(!err) })
-    }
+    this.client.on(ClientEvents.ONLINE, (id) => {
+      self.connect(id, true)
+    })
 
-    connectWhenOnline(id) {
-        this.client.registerForUpdates(id)
-    }
+    this.client.signIn((err) => { assert.ok(!err) })
+  }
 
-    connect(id, initiator) {
-        let self = this
+  connectWhenOnline(id) {
+    this.client.registerForUpdates(id)
+  }
 
-        let peer = this.idToPeers[id] = new SimplePeer({ wrtc: wrtc, initiator: initiator })
+  connect(id, initiator) {
+    let self = this
 
-        peer.on('signal', (signal) => {
-            self.client.signal(id, signal, (err) => { assert.ok(!err) })
-        })
+    let peer = this.idToPeers[id] = new SimplePeer({ wrtc: wrtc, initiator: initiator })
 
-        peer.on('error', (err) => {
-            console.log(self.client.id + " encountered an error")
-        })
+    peer.on('signal', (signal) => {
+      self.client.signal(id, signal, (err) => { assert.ok(!err) })
+    })
 
-        peer.on('connect', () => {
-            peer.send("Hello from " + self.client.id)
-        })
+    peer.on('error', (err) => {
+      console.log(self.client.id + " encountered an error")
+    })
 
-        peer.on('data', (data) => {
-            console.log(data.toString('utf8'))
-        })
-    }
+    peer.on('connect', () => {
+      peer.send("Hello from " + self.client.id)
+    })
+
+    peer.on('data', (data) => {
+      console.log(data.toString('utf8'))
+    })
+  }
 }
 
 /**************/

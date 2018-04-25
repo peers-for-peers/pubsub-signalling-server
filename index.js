@@ -9,34 +9,34 @@ const assert = require('assert')
 /***********/
 
 const MessageType = {
-    ERROR: 'ERROR',
-    SIGNAL: 'SIGNAL',
-    SIGN_IN: 'SIGN_IN',
-    REGISTER_CLIENT_STATUS: 'REGISTER_CLIENT_STATUS',
-    UPDATE_CLIENT_STATUS: 'UPDATE_CLIENT_STATUS',
+  ERROR: 'ERROR',
+  SIGNAL: 'SIGNAL',
+  SIGN_IN: 'SIGN_IN',
+  REGISTER_CLIENT_STATUS: 'REGISTER_CLIENT_STATUS',
+  UPDATE_CLIENT_STATUS: 'UPDATE_CLIENT_STATUS',
 }
 
 const ClientStatus = {
-    ONLINE: 'ONLINE',
-    OFFLINE: 'OFFLINE',
+  ONLINE: 'ONLINE',
+  OFFLINE: 'OFFLINE',
 }
 
 const messageTypeToFormatter = {
-    [MessageType.ERROR]: (message) => ({
-        'message': message,
-    }),
-    [MessageType.RELAY]: (from, to, payload) => ({
-        'from': from,
-        'to': to,
-        'payload': payload,
-    }),
-    [MessageType.SIGN_IN]: (id) => ({ 'id': id }),
-    [MessageType.GET_TOPIC_INFO_REQ]: (id) => ({
-        'id': id
-    }),
-    [MessageType.GET_TOPIC_INFO_RSP]: (peers) => ({
-        'peers': peers
-    }),
+  [MessageType.ERROR]: (message) => ({
+    'message': message,
+  }),
+  [MessageType.RELAY]: (from, to, payload) => ({
+    'from': from,
+    'to': to,
+    'payload': payload,
+  }),
+  [MessageType.SIGN_IN]: (id) => ({ 'id': id }),
+  [MessageType.GET_TOPIC_INFO_REQ]: (id) => ({
+    'id': id
+  }),
+  [MessageType.GET_TOPIC_INFO_RSP]: (peers) => ({
+    'peers': peers
+  }),
 }
 
 const formatPayload = (type, args) => messageTypeToFormatter[type](...args)
@@ -52,21 +52,21 @@ const formatPayload = (type, args) => messageTypeToFormatter[type](...args)
  * @param {Function} cb
  */
 function sendMessage(ws, type, cb, ...args) {
-    const data = JSON.stringify({
-        'type': type,
-        'payload': formatPayload(type, args),
-    })
+  const data = JSON.stringify({
+    'type': type,
+    'payload': formatPayload(type, args),
+  })
 
-    // If the websocket is not open, queue the message
-    if (ws.readyState != WebSocket.OPEN) {
-        ws.once('open', () => {
-            ws.send(data)
-            if (cb) cb(null)
-        })
-    } else {
-        ws.send(data)
-        if (cb) cb(null)
-    }
+  // If the websocket is not open, queue the message
+  if (ws.readyState != WebSocket.OPEN) {
+    ws.once('open', () => {
+      ws.send(data)
+      if (cb) cb(null)
+    })
+  } else {
+    ws.send(data)
+    if (cb) cb(null)
+  }
 }
 
 /********/
@@ -74,26 +74,26 @@ function sendMessage(ws, type, cb, ...args) {
 /********/
 
 class MessageHandler extends EventEmitter {
-    constructor() {
-        super()
+  constructor() {
+    super()
 
-        this.MESSAGE_HANDLER_PREFIX = '_MESSAGE_HANDLER_'
-        this._supportedMessageTypes = new Set()
+    this.MESSAGE_HANDLER_PREFIX = '_MESSAGE_HANDLER_'
+    this._supportedMessageTypes = new Set()
+  }
+
+  _registerHandler(type, handler) {
+    this._supportedMessageTypes.add(type)
+    this.on(this.MESSAGE_HANDLER_PREFIX + type, handler)
+  }
+
+  _handleMessage(type, cb, ...context) {
+    if (!this._supportedMessageTypes.has(type)) {
+      cb(util.format("The message type `%s` is not supported", data.type))
+      return
     }
 
-    _registerHandler(type, handler) {
-        this._supportedMessageTypes.add(type)
-        this.on(this.MESSAGE_HANDLER_PREFIX + type, handler)
-    }
-
-    _handleMessage(type, cb, ...context) {
-        if (!this._supportedMessageTypes.has(type)) {
-            cb(util.format("The message type `%s` is not supported", data.type))
-            return
-        }
-
-        this.emit(this.MESSAGE_HANDLER_PREFIX + type, ...context)
-    }
+    this.emit(this.MESSAGE_HANDLER_PREFIX + type, ...context)
+  }
 
 }
 
@@ -102,79 +102,79 @@ class MessageHandler extends EventEmitter {
 /**********/
 
 class Server extends MessageHandler {
-    constructor() {
-        super()
+  constructor() {
+    super()
 
-        let self = this
+    let self = this
 
-        // TODO : don't store these in memory...
-        this._idToClient = {}
-        this._clientToListenerIDs = {}
+    // TODO : don't store these in memory...
+    this._idToClient = {}
+    this._clientToListenerIDs = {}
 
-        // Initialize websocket server
-        this._wss = new WebSocket.Server({
-            clientTracking: true,
-            port: 8080,
-        })
+    // Initialize websocket server
+    this._wss = new WebSocket.Server({
+      clientTracking: true,
+      port: 8080,
+    })
 
-        // Register handlers for every message type
-        this._registerHandler(MessageType.SIGNAL, this.handleSignal)
-        this._registerHandler(MessageType.SIGN_IN, this.handleSignIn)
-        this._registerHandler(MessageType.REGISTER_CLIENT_STATUS, this.handleRegisterClientStatus)
+    // Register handlers for every message type
+    this._registerHandler(MessageType.SIGNAL, this.handleSignal)
+    this._registerHandler(MessageType.SIGN_IN, this.handleSignIn)
+    this._registerHandler(MessageType.REGISTER_CLIENT_STATUS, this.handleRegisterClientStatus)
 
-        self._wss.on('connection', (ws) => {
-            // Triage messages to designated event handlers
-            ws.on('message', (data) => {
-                data = JSON.parse(data)
+    self._wss.on('connection', (ws) => {
+      // Triage messages to designated event handlers
+      ws.on('message', (data) => {
+        data = JSON.parse(data)
 
-                self._handleMessage(
-                    data.type,
-                    (err) => { if (err) sendMessage(ws, MessageType.ERROR, null, err) },
-                    ws,
-                    data.payload
-                )
-            })
+        self._handleMessage(
+          data.type,
+          (err) => { if (err) sendMessage(ws, MessageType.ERROR, null, err) },
+          ws,
+          data.payload
+        )
+      })
 
-            // Notify listeners when a client connection is closed
-            ws.on('close', () => {
-                // The client never logged in
-                if (!ws.id) return
+      // Notify listeners when a client connection is closed
+      ws.on('close', () => {
+        // The client never logged in
+        if (!ws.id) return
 
-                self._notifyListeners(ws.id, ClientStatus.OFFLINE)
+        self._notifyListeners(ws.id, ClientStatus.OFFLINE)
 
-                // Clean up client state
-                delete self._idToClient[ws.id]
-            })
-        })
-    }
+        // Clean up client state
+        delete self._idToClient[ws.id]
+      })
+    })
+  }
 
-    /***********/
-    /* PRIVATE */
-    /***********/
+  /***********/
+  /* PRIVATE */
+  /***********/
 
-    _notifyListeners(id, clientStatus) {
-        let self = this
+  _notifyListeners(id, clientStatus) {
+    let self = this
 
-        let listeners = this._clientToListenerIDs[id] || new Set()
-        listeners.forEach((l) => {
-            // Lazily clean up the id to client mapping
-            if (!self._idToClient[l]) listeners.delete(l)
+    let listeners = this._clientToListenerIDs[id] || new Set()
+    listeners.forEach((l) => {
+      // Lazily clean up the id to client mapping
+      if (!self._idToClient[l]) listeners.delete(l)
 
-            sendMessage(self._idToClient[l], MessageType.UPDATE_CLIENT_STATUS, null, id, clientStatus)
-        })
-    }
+      sendMessage(self._idToClient[l], MessageType.UPDATE_CLIENT_STATUS, null, id, clientStatus)
+    })
+  }
 
-    /************/
-    /* HANDLERS */
-    /************/
+  /************/
+  /* HANDLERS */
+  /************/
 
-    /**
-     * Sign in to the service by registering a public key
-     *
-     * @param {WebSocket} ws
-     * @param {String} clientId
-     * @param {Object} payload
-     */
+  /**
+   * Sign in to the service by registering a public key
+   *
+   * @param {WebSocket} ws
+   * @param {String} clientId
+   * @param {Object} payload
+   */
     handleSignIn(ws, payload) {
         let self = this
 
@@ -183,7 +183,7 @@ class Server extends MessageHandler {
             return
         }
 
-        // Update data structures
+  // Update data structures
         self._idToClient[payload.id] = ws
         assert(!ws.id)
         ws.id = payload.id
@@ -191,13 +191,13 @@ class Server extends MessageHandler {
         self._notifyListeners(ws.id, ClientStatus.ONLINE)
     }
 
-    /**
-     * Initiate signaling with another client
-     *
-     * @param {WebSocket} ws
-     * @param {String} clientId
-     * @param {Object} payload
-     */
+  /**
+   * Initiate signaling with another client
+   *
+   * @param {WebSocket} ws
+   * @param {String} clientId
+   * @param {Object} payload
+   */
     handleSignal(ws, payload) {
         if (!this._idToClient[payload.toId]) {
             this.emit(ws, util.format('Client `%s` is not online', payload.toId))
@@ -210,7 +210,7 @@ class Server extends MessageHandler {
     handleRegisterClientStatus(ws, payload) {
         if (!this._clientToListenerIDs[payload.toId]) this._clientToListenerIDs[payload.toId] = new Set()
 
-        // Send the clients status if they are online
+  // Send the clients status if they are online
         if (this._idToClient[payload.id]) {
             sendMessage(ws.id, MessageType.UPDATE_CLIENT_STATUS, null, payload.id, ClientStatus.ONLINE)
         }
@@ -226,9 +226,9 @@ const ClientEvents = {
 }
 
 class Client extends MessageHandler {
-    /**
-     * @param {String} id - The public key of the client being created
-     */
+  /**
+   * @param {String} id - The public key of the client being created
+   */
     constructor(id) {
         super()
 
@@ -237,7 +237,7 @@ class Client extends MessageHandler {
         self.id = id
         self._ws = new WebSocket('ws://localhost::8080')
 
-        // Register handlers for every message type
+  // Register handlers for every message type
         this._registerHandler(
             MessageType.ERROR,
             (payload) => console.log(util.format('SERVER ERROR: %s', payload.message))
@@ -254,7 +254,7 @@ class Client extends MessageHandler {
             )
         )
 
-        // Triage messages to designated event handlers
+  // Triage messages to designated event handlers
         self._ws.on('message', (data) => {
             data = JSON.parse(data)
 
@@ -284,10 +284,10 @@ class Client extends MessageHandler {
     }
 }
 
-/***********/
-/* EXPORTS */
-/***********/
+  /***********/
+  /* EXPORTS */
+  /***********/
 
-module.exports.Server = Server
-module.exports.Client = Client
-module.exports.ClientEvents = ClientEvents
+  module.exports.Server = Server
+  module.exports.Client = Client
+  module.exports.ClientEvents = ClientEvents
