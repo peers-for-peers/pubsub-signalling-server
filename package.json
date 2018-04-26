@@ -4,23 +4,30 @@
   "description": "A signaling server for the social protocol",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "standard && ./node_modules/karma/bin/karma start karma.conf.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/peers-for-peers/the-social-server.git"
   },
   "dependencies": {
-      "ws": "latest"
+    "ws": "latest"
   },
   "devDependencies": {
-      "uglify-es": "latest",
-      "standard": "latest"
+    "karma": "latest",
+    "karma-browserify": "latest",
+    "karma-chrome-launcher": "latest",
+    "karma-firefox-launcher": "latest",
+    "karma-mocha": "latest",
+    "mocha": "latest",
+    "standard": "latest",
+    "uglify-es": "latest",
+    "watchify": "latest"
   },
   "author": "George Farcasiu & Austin Middleton",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/peers-for-peers/the-social-server/issues"
+   "url": "https://github.com/peers-for-peers/the-social-server/issues"
   },
   "homepage": "https://github.com/peers-for-peers/the-social-server#readme"
 }
