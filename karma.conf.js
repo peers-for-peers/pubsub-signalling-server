@@ -1,6 +1,8 @@
 // Karma configuration
 // Generated on Thu Apr 26 2018 11:17:58 GMT-0500 (CDT)
 
+const Server = require('.').Server
+
 module.exports = function (config) {
   config.set({
 
@@ -9,7 +11,12 @@ module.exports = function (config) {
 
     // frameworks to use
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
-    frameworks: ['mocha'],
+    frameworks: [
+      'browserify',
+      'mocha',
+      // Custom frameworks
+      'signal'
+    ],
 
     // list of files / patterns to load in the browser
     files: [
@@ -23,6 +30,7 @@ module.exports = function (config) {
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
     preprocessors: {
+      'test/test.js': 'browserify'
     },
 
     // test results reporter to use
@@ -53,6 +61,19 @@ module.exports = function (config) {
 
     // Concurrency level
     // how many browser should be started simultaneous
-    concurrency: Infinity
+    concurrency: Infinity,
+
+    plugins: [
+      'karma-browserify',
+      'karma-chrome-launcher',
+      'karma-firefox-launcher',
+      'karma-mocha',
+      {
+        'framework:signal': ['factory', function () {
+          console.log('STARTING SERVER')
+          const server = new Server() // eslint-disable-line
+        }]
+      }
+    ]
   })
 }

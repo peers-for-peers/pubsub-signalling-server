@@ -11,7 +11,7 @@
     "url": "git+https://github.com/peers-for-peers/the-social-server.git"
   },
   "dependencies": {
-    "ws": "latest"
+    "isomorphic-ws": "latest"
   },
   "devDependencies": {
     "karma": "latest",

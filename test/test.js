@@ -1,25 +1,41 @@
 /* eslint-env mocha, browser */
 
-const Client = require('./src/').Client
-const ClientEvents = require('./src/').ClientEvents
-const Server = require('./src/').Server
+const Client = require('../src/client.js').Client
+const ClientEvents = require('../src/client.js').ClientEvents
 
 const assert = require('assert')
 
-const server = Server() // eslint-disable-line
-
 describe('basic', function () {
   this.timeout(3000)
+
+  let clients = []
+  const clientFactory = (...args) => {
+    let c = new Client(...args)
+    clients.push(c)
+    return c
+  }
+
+  afterEach(function () {
+    clients.forEach((c) => {
+      c.close()
+    })
+
+    clients = []
+  })
+
+  /*********/
+  /* TESTS */
+  /*********/
 
   it('topic-info.simple', function (done) {
     const TOPIC = 'foo'
     const CLIENT_ID = 1
 
-    let client = Client(CLIENT_ID)
+    let client = clientFactory(CLIENT_ID)
 
     client.on(ClientEvents.TOPIC_INFO, (topic, peers) => {
-      assert.eq(topic, TOPIC)
-      assert.eq(peers, [client.id])
+      assert.deepEqual(topic, TOPIC)
+      assert.deepEqual(peers, [client.id])
 
       done()
     })
