@@ -3,7 +3,6 @@ const util = require('util')
 
 const MessageHandler = require('./base').MessageHandler
 const MessageType = require('./base').MessageType
-const sendMessage = require('./base').sendMessage
 
 /**********/
 /* PUBLIC */
@@ -49,7 +48,7 @@ class Client extends MessageHandler {
       const data = JSON.parse(event.data)
 
       self._handleMessage(
-        data.type,
+        data,
         (err) => { if (err) self.emit(ClientEvents.ERROR, err) },
         data.payload
       )
@@ -65,19 +64,19 @@ class Client extends MessageHandler {
   /**********************/
 
   getTopicInfo (topic, cb) {
-    sendMessage(this._ws, MessageType.GET_TOPIC_INFO_REQ, cb, topic)
+    this.sendMessage(this._ws, MessageType.GET_TOPIC_INFO_REQ, cb, topic)
   }
 
   relay (toId, relay, cb) {
-    sendMessage(this._ws, MessageType.RELAY, cb, this.id, toId, relay)
+    this.sendMessage(this._ws, MessageType.RELAY, cb, this.id, toId, relay)
   }
 
   signIn (cb) {
-    sendMessage(this._ws, MessageType.SIGN_IN, cb, this.id)
+    this.sendMessage(this._ws, MessageType.SIGN_IN, cb, this.id)
   }
 
   subscribe (topic, cb) {
-    sendMessage(this._ws, MessageType.SUBSCRIBE, cb, this.id, topic)
+    this.sendMessage(this._ws, MessageType.SUBSCRIBE, cb, this.id, topic)
   }
 }
 

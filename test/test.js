@@ -15,6 +15,7 @@ describe('basic', function () {
     return c
   }
 
+  // TODO : this needs to be done synchronously to prevent race conditions
   afterEach(function () {
     clients.forEach((c) => {
       c.close()
@@ -27,7 +28,16 @@ describe('basic', function () {
   /* TESTS */
   /*********/
 
-  it('topic-info.simple', function (done) {
+  it('BASIC_TEST_CALLBACK', function (done) {
+    let client = clientFactory(4)
+
+    client.signIn((err) => {
+      assert(!err)
+      done()
+    })
+  })
+
+  it('TOPIC_INFO_SIMPLE', function (done) {
     const TOPIC = 'foo'
     const CLIENT_ID = 1
 
@@ -42,6 +52,6 @@ describe('basic', function () {
 
     client.signIn()
     client.subscribe(TOPIC)
-    client.getTopicInfo(TOPIC, null)
+    client.getTopicInfo(TOPIC)
   })
 })

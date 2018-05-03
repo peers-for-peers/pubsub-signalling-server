@@ -4,7 +4,6 @@ const util = require('util')
 
 const MessageHandler = require('./base').MessageHandler
 const MessageType = require('./base').MessageType
-const sendMessage = require('./base').sendMessage
 
 /**********/
 /* PUBLIC */
@@ -36,26 +35,31 @@ class Server extends MessageHandler {
 
     self._wss.on('connection', (ws) => {
       // Triage messages to designated event handlers
-      ws.on('message', (data) => {
-        data = JSON.parse(data)
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+
+        console.log('SERVER >>> got message of type ' + data.type)
+
+        // NOTE that the server should never receive ACKs from the client
+        if (data.type !== MessageType.ACK) self.sendMessage(ws, MessageType.ACK, null, data.msgId)
 
         self._handleMessage(
-          data.type,
-          (err) => { if (err) sendMessage(ws, MessageType.ERROR, null, err) },
+          data,
+          (err) => { if (err) self.sendMessage(ws, MessageType.ERROR, null, err) },
           ws,
           data.payload
         )
-      })
+      }
 
       ws.on('close', () => {
         // The client never logged in
         if (!ws.id) return
 
+        delete this._idToClient[ws.id]
+
         // Clean up the client from subscribed topics
-        if (self._idToTopics[ws.id]) {
-          self._idToTopics[ws.id].forEach((topic) => self._topicsToIds[topic].remove(ws.id))
-          delete self._idToTopics[ws.id]
-        }
+        self._idToTopics[ws.id].forEach((topic) => self._topicsToIds[topic].delete(ws.id))
+        delete self._idToTopics[ws.id]
       })
     })
   }
@@ -68,25 +72,25 @@ class Server extends MessageHandler {
     const ids = this._topicsToIds[payload.topic]
 
     if (!ids) {
-      sendMessage(ws, MessageType.ERROR, null, util.format('Topic `%s` does not exist', payload.topic))
+      this.sendMessage(ws, MessageType.ERROR, null, util.format('Topic `%s` does not exist', payload.topic))
       return
     }
 
-    sendMessage(ws, MessageType.GET_TOPIC_INFO_RSP, null, payload.topic, ids)
+    this.sendMessage(ws, MessageType.GET_TOPIC_INFO_RSP, null, payload.topic, ids)
   }
 
   _handleRelay (ws, payload) {
     if (!this._idToClient[payload.toId]) {
-      sendMessage(ws, MessageType.ERROR, null, util.format('Client `%s` is not online', payload.toId))
+      this.sendMessage(ws, MessageType.ERROR, null, util.format('Client `%s` is not online', payload.toId))
       return
     }
 
-    sendMessage(this._idToClient[payload.toId], MessageType.RELAY, null, payload.fromId, payload.toId, payload.relay)
+    this.sendMessage(this._idToClient[payload.toId], MessageType.RELAY, null, payload.fromId, payload.toId, payload.relay)
   }
 
   _handleSignIn (ws, payload) {
     if (this._idToClient[payload.id]) {
-      sendMessage(ws, MessageType.ERROR, null, util.format('A client is already registered with ID: %s', payload.id))
+      this.sendMessage(ws, MessageType.ERROR, null, util.format('A client is already registered with ID: %s', payload.id))
       return
     }
 
@@ -94,14 +98,19 @@ class Server extends MessageHandler {
     this._idToClient[payload.id] = ws
     assert(!ws.id)
     ws.id = payload.id
+
+    assert(!this._idToTopics[payload.id])
+    this._idToTopics[payload.id] = new Set()
   }
 
   _handleSubscribe (ws, payload) {
+    // Create the topic if it does not exist
     if (!this._topicsToIds[payload.topic]) {
       this._topicsToIds[payload.topic] = new Set()
     }
 
     this._topicsToIds[payload.topic].add(payload.id)
+    this._idToTopics[payload.id].add(payload.topic)
   }
 }
 
