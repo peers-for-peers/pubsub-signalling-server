@@ -38,8 +38,6 @@ class Server extends MessageHandler {
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data)
 
-        console.log('SERVER >>> got message of type ' + data.type)
-
         // NOTE that the server should never receive ACKs from the client
         if (data.type !== MessageType.ACK) self.sendMessage(ws, MessageType.ACK, null, data.msgId)
 

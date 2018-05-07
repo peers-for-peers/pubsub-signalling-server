@@ -1,9 +1,9 @@
 /* eslint-env mocha, browser */
 
-const Client = require('../src/client.js').Client
-const ClientEvents = require('../src/client.js').ClientEvents
+const Client = require('../').Client
+const ClientEvents = require('../').ClientEvents
 
-const assert = require('assert')
+const assert = require('chai').assert
 
 describe('basic', function () {
   this.timeout(3000)
@@ -44,7 +44,7 @@ describe('basic', function () {
     let client = clientFactory(CLIENT_ID)
 
     client.on(ClientEvents.TOPIC_INFO, (topic, peers) => {
-      assert.deepEqual(topic, TOPIC)
+      assert.isOk(topic === TOPIC)
       assert.deepEqual(peers, [client.id])
 
       done()
@@ -53,5 +53,26 @@ describe('basic', function () {
     client.signIn()
     client.subscribe(TOPIC)
     client.getTopicInfo(TOPIC)
+  })
+
+  it('TOPIC_INFO_TWO_CLIENTS', function (done) {
+    const TOPIC = 'foo'
+
+    let c1 = clientFactory(1)
+    let c2 = clientFactory(2)
+
+    c1.signIn()
+    c2.signIn()
+
+    c1.on(ClientEvents.TOPIC_INFO, (topic, peers) => {
+      assert.isOk(topic === TOPIC)
+      assert.deepEqual(peers, [1, 2])
+
+      done()
+    })
+
+    c1.subscribe(TOPIC, () => c2.subscribe(TOPIC, () => {
+      c1.getTopicInfo(TOPIC)
+    }))
   })
 })

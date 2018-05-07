@@ -14,20 +14,20 @@
     "isomorphic-ws": "latest"
   },
   "devDependencies": {
-    "karma": "latest",
-    "karma-browserify": "latest",
-    "karma-chrome-launcher": "latest",
-    "karma-firefox-launcher": "latest",
-    "karma-mocha": "latest",
-    "mocha": "latest",
-    "standard": "latest",
-    "uglify-es": "latest",
-    "watchify": "latest"
+    "browserify": "^16.2.0",
+    "chai": "^4.1.2",
+    "karma": "^2.0.2",
+    "karma-browserify": "^5.2.0",
+    "karma-chrome-launcher": "^2.2.0",
+    "karma-mocha": "^1.3.0",
+    "mocha": "^5.1.1",
+    "standard": "^11.0.1",
+    "watchify": "^3.11.0"
   },
   "author": "George Farcasiu & Austin Middleton",
   "license": "ISC",
   "bugs": {
-   "url": "https://github.com/peers-for-peers/the-social-server/issues"
+    "url": "https://github.com/peers-for-peers/the-social-server/issues"
   },
   "homepage": "https://github.com/peers-for-peers/the-social-server#readme"
 }
