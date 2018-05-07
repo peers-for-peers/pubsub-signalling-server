@@ -23,7 +23,7 @@ class Client extends MessageHandler {
 
     let self = this
 
-    self.id = id
+    self.id = id.toString()
     self._ws = new WebSocket('ws://localhost:8080')
 
     // Register handlers
@@ -36,11 +36,11 @@ class Client extends MessageHandler {
     )
     this._registerHandler(
       MessageType.GET_TOPIC_INFO_RSP,
-      (payload) => self.emit(ClientEvents.TOPIC_INFO, payload.topic, payload.peers)
+      (payload) => self.emit(ClientEvents.TOPIC_INFO, payload.topic, new Set(payload.peers))
     )
     this._registerHandler(
       MessageType.RELAY,
-      (payload) => self.emit(ClientEvents.RELAY, payload.fromId, payload.relay)
+      (payload) => self.emit(ClientEvents.RELAY, payload.from, payload.relay)
     )
 
     // Triage messages to designated event handlers
@@ -67,8 +67,8 @@ class Client extends MessageHandler {
     this.sendMessage(this._ws, MessageType.GET_TOPIC_INFO_REQ, cb, topic)
   }
 
-  relay (toId, relay, cb) {
-    this.sendMessage(this._ws, MessageType.RELAY, cb, this.id, toId, relay)
+  relay (to, relay, cb) {
+    this.sendMessage(this._ws, MessageType.RELAY, cb, this.id, to, relay)
   }
 
   signIn (cb) {

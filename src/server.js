@@ -78,12 +78,12 @@ class Server extends MessageHandler {
   }
 
   _handleRelay (ws, payload) {
-    if (!this._idToClient[payload.toId]) {
-      this.sendMessage(ws, MessageType.ERROR, null, util.format('Client `%s` is not online', payload.toId))
+    if (!this._idToClient[payload.to]) {
+      this.sendMessage(ws, MessageType.ERROR, null, util.format('Client `%s` is not online', payload.to))
       return
     }
 
-    this.sendMessage(this._idToClient[payload.toId], MessageType.RELAY, null, payload.fromId, payload.toId, payload.relay)
+    this.sendMessage(this._idToClient[payload.to], MessageType.RELAY, null, payload.from, payload.to, payload.relay)
   }
 
   _handleSignIn (ws, payload) {

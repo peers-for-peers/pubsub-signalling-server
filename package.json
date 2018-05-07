@@ -4,14 +4,16 @@
   "description": "A signaling server for the social protocol",
   "main": "index.js",
   "scripts": {
-    "test": "standard && ./node_modules/karma/bin/karma start karma.conf.js"
+    "test": "standard && ./node_modules/karma/bin/karma start karma.conf.js",
+    "fix": "standard --fix"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/peers-for-peers/the-social-server.git"
   },
   "dependencies": {
-    "isomorphic-ws": "latest"
+    "deep-equal": "^1.0.1",
+    "isomorphic-ws": "^4.0.1"
   },
   "devDependencies": {
     "browserify": "^16.2.0",
