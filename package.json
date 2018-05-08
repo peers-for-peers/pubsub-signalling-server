@@ -1,7 +1,7 @@
 {
-  "name": "the_social_server",
+  "name": "pubsub-signalling-server",
   "version": "1.0.0",
-  "description": "A signaling server for the social protocol",
+  "description": "A signaling server for the pubsub peer to peer protocol",
   "main": "index.js",
   "scripts": {
     "test": "standard && ./node_modules/karma/bin/karma start karma.conf.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/peers-for-peers/the-social-server.git"
+    "url": "git+https://github.com/peers-for-peers/pubsub-signalling-server.git"
   },
   "dependencies": {
     "deep-equal": "^1.0.1",
@@ -29,7 +29,7 @@
   "author": "George Farcasiu & Austin Middleton",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/peers-for-peers/the-social-server/issues"
+    "url": "https://github.com/peers-for-peers/pubsub-signalling-server/issues"
   },
-  "homepage": "https://github.com/peers-for-peers/the-social-server#readme"
+  "homepage": "https://github.com/peers-for-peers/pubsub-signalling-server#readme"
 }
