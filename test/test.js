@@ -1,7 +1,7 @@
 /* eslint-env mocha, browser */
 
-const Client = require('../').Client
-const ClientEvents = require('../').ClientEvents
+const Client = require('../src/client.js').Client
+const ClientEvents = require('../src/client.js').ClientEvents
 
 const chai = require('chai')
 chai.config.strict = true

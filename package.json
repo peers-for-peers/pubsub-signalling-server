@@ -4,7 +4,7 @@
   "description": "A signaling server for the pubsub peer to peer protocol",
   "main": "index.js",
   "scripts": {
-    "test": "standard && ./node_modules/karma/bin/karma start karma.conf.js",
+    "test": "standard build/ && ./bin/build.sh && ./node_modules/karma/bin/karma start karma.conf.js",
     "fix": "standard --fix"
   },
   "repository": {
@@ -19,9 +19,9 @@
     "browserify": "^16.2.0",
     "chai": "^4.1.2",
     "karma": "^2.0.2",
-    "karma-browserify": "^5.2.0",
     "karma-chrome-launcher": "^2.2.0",
     "karma-mocha": "^1.3.0",
+    "karma-source-map-support": "^1.3.0",
     "mocha": "^5.1.1",
     "standard": "^11.0.1",
     "watchify": "^3.11.0"

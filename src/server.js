@@ -2,8 +2,8 @@ const WebSocket = require('isomorphic-ws')
 const assert = require('assert')
 const util = require('util')
 
-const MessageHandler = require('./base').MessageHandler
-const MessageType = require('./base').MessageType
+const MessageHandler = require('./base.js').MessageHandler
+const MessageType = require('./base.js').MessageType
 
 /**********/
 /* PUBLIC */

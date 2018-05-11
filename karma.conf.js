@@ -10,19 +10,15 @@ module.exports = function (config) {
     // frameworks to use
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
     frameworks: [
-      'browserify',
       'mocha',
+      'source-map-support',
       // Custom
       'startServer'
     ],
 
-    browserify: {
-      debug: true
-    },
-
     // list of files / patterns to load in the browser
     files: [
-      'test/test.js'
+      'build/test/test.js'
     ],
 
     // list of files / patterns to exclude
@@ -32,13 +28,12 @@ module.exports = function (config) {
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
     preprocessors: {
-      'test/test.js': ['browserify']
     },
 
     plugins: [
-      'karma-browserify',
       'karma-chrome-launcher',
       'karma-mocha',
+      'karma-source-map-support',
       {
         'framework:startServer': ['factory', function () {
           console.log('>>> STARTING SERVER')
