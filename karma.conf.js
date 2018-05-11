@@ -37,7 +37,7 @@ module.exports = function (config) {
       {
         'framework:startServer': ['factory', function () {
           console.log('>>> STARTING SERVER')
-          new (require('.').Server)() // eslint-disable-line
+          new (require('./src/server.js').Server)() // eslint-disable-line
         }]
       }
     ],

@@ -4,10 +4,10 @@
   "description": "A signaling server for the pubsub peer to peer protocol",
   "main": "index.js",
   "files": [
-      "build/*"
+    "build/*"
   ],
   "scripts": {
-    "build": "./bin/build.sh",  
+    "build": "./bin/build.sh",
     "test": "standard build/ && ./bin/build.sh && ./node_modules/karma/bin/karma start karma.conf.js",
     "fix": "standard --fix"
   },
@@ -20,7 +20,7 @@
     "isomorphic-ws": "^4.0.1"
   },
   "devDependencies": {
-    "browserify": "^16.2.0",
+    "browserify": "^16.2.2",
     "chai": "^4.1.2",
     "karma": "^2.0.2",
     "karma-chrome-launcher": "^2.2.0",
