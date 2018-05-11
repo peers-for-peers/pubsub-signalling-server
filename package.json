@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "A signaling server for the pubsub peer to peer protocol",
   "main": "index.js",
+  "files": [
+      "build/*"
+  ],
   "scripts": {
+    "build": "./bin/build.sh",  
     "test": "standard build/ && ./bin/build.sh && ./node_modules/karma/bin/karma start karma.conf.js",
     "fix": "standard --fix"
   },
