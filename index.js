@@ -1,2 +1,2 @@
-module.exports.Client = require('./build/src/client.js').Client
-module.exports.ClientEvents = require('./build/src/client.js').ClientEvents
+module.exports.Client = require('./src/client.js').Client
+module.exports.ClientEvents = require('./src/client.js').ClientEvents
