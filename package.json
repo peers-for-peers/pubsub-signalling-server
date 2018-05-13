@@ -1,6 +1,6 @@
 {
   "name": "pubsub-signalling-server",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A signaling server for the pubsub peer to peer protocol",
   "main": "index.js",
   "files": [
